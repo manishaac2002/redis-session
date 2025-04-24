@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
 // Create Redis client
 const redisClient = createClient({
@@ -43,6 +43,7 @@ app.use(session({
 app.get('/', (req, res) => {
   if (req.session.views) {
     req.session.views++;
+  
     res.send(`Visited ${req.session.views} times.`);
   } else {
     req.session.views = 1;
@@ -53,3 +54,8 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
+
+//connection -- done 
+//sessioin -- process
+//token [jwt token validation] - should know this and does it work on 
+//login api to ckeck the validation 

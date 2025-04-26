@@ -1,52 +1,48 @@
-import {
-  getUserSessionId,
-  setUserSessionId,
-  destroySessionById,
-} from "../services/sessionService.js";
+import bcrypt from 'bcryptjs';
+import redisClient from '../sessions/redisClient.js';
 
-// Simulated DB call
-const findUserInDb = async (username, password) => {
-  if (username === "admin" && password === "123") {
-    return { id: "user1", username: "admin" };
-  }
-  return null;
-};
+const users = [
+  { id: '1', username: 'manisha', password: bcrypt.hashSync('1234', 10) }
+];
+
+const SESSION_KEY_PREFIX = 'user-session:';
 
 export const login = async (req, res) => {
-  const { username, password } = req.body;
-  const user = await findUserInDb(username, password);
+  const { username, password, force } = req.body;
+  const user = users.find(u => u.username === username);
 
-  if (!user) return res.status(401).json({ message: "Invalid credentials" });
+  if (!user || !bcrypt.compareSync(password, user.password)) {
+    return res.status(401).json({ message: 'Invalid credentials' });
+  }
 
-  const existingSessionId = await getUserSessionId(user.id);
+  const existingSessionId = await redisClient.get(`${SESSION_KEY_PREFIX}${user.id}`);
 
-  if (existingSessionId && existingSessionId !== req.sessionID) {
-    return res.status(200).json({
-      message: "Already logged in on another device",
-      options: ["logout_other", "continue_here"],
-      userId: user.id,
+  if (existingSessionId && !force) {
+    return res.status(409).json({
+      message: 'Already logged in elsewhere',
+      options: ['Force login', 'Cancel']
     });
   }
 
-  req.session.userId = user.id;
-  await setUserSessionId(user.id, req.sessionID);
-  res.json({ message: "Login successful" });
-};
-
-export const resolveSession = async (req, res) => {
-  const { userId, action } = req.body;
-  const oldSessionId = await getUserSessionId(userId);
-
-  if (action === "logout_other") {
-    await destroySessionById(oldSessionId);
-    await setUserSessionId(userId, req.sessionID);
-    req.session.userId = userId;
-    return res.json({ message: "Old session logged out. Logged in here." });
-  } else if (action === "continue_here") {
-    await setUserSessionId(userId, req.sessionID);
-    req.session.userId = userId;
-    return res.json({ message: "Continuing in this session." });
+  if (existingSessionId && force) {
+    await redisClient.del(`sess:${existingSessionId}`);
   }
 
-  res.status(400).json({ message: "Invalid action" });
+  await redisClient.set(`${SESSION_KEY_PREFIX}${user.id}`, req.sessionID);
+  req.session.userId = user.id;
+
+  res.json({ message: 'Login successful' });
 };
+
+export const logout = async (req, res) => {
+  const userId = req.session.userId;
+  await redisClient.del(`${SESSION_KEY_PREFIX}${userId}`);
+  req.session.destroy(() => {
+    res.json({ message: 'Logged out' });
+  });
+};
+
+export const viewDashboard =(req,res)=>{
+    console.log("test");
+    
+}

@@ -12,7 +12,7 @@ app.get('/api/slow', cache('10 seconds'), async (req, res) => {
   console.log('⏳ Processing request...');
   
   // Simulate a slow API with a delay
-  await new Promise(resolve => setTimeout(resolve, 3000));
+  await new Promise(resolve => setTimeout(resolve, 6000));
 
   res.json({
     message: '✅ This response is now cached!',
